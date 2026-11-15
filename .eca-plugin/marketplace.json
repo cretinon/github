@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    {
+      "name": "github",
+      "description": "GitHub from the editor: the hosted MCP server, four skills, a read-only PR reviewer and two commands",
+      "source": "plugins/github"
+    }
+  ]
+}

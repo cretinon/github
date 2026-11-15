@@ -1,0 +1,8 @@
+---
+# The playbook gate of this project: `ansible-lint .` with the safety profile, the
+# rules of every profile below `shared` (idiom, load-path, unpredictability, metadata).
+profile: safety
+# the baseline SkillSpector writes is no ansible file: it starts its sequence at
+# column 0, and the scanner rewrites it that way on every regeneration
+exclude_paths:
+  - .skillspector-baseline.yaml

@@ -1,0 +1,161 @@
+---
+- name: Verify the plugin manifest of the GitHub MCP server
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    # the hosted server of GitHub: it installs nothing, so this play checks the two
+    # files the plugin starts instead. The live check is the troubleshoot skill
+    github_mcp_server_name: "github"
+    github_mcp_server_url: "https://api.githubcopilot.com/mcp/"
+    github_mcp_toolsets: "all"
+    github_mcp_token_variable: "GITHUB_PERSONAL_ACCESS_TOKEN"
+    github_mcp_manifest: "{{ playbook_dir }}/../plugins/github/eca.json"
+    # the mutating tools the server publishes: none of them is pre-approved, so a
+    # write always asks the owner first. The aliases upstream keeps for backward
+    # compatibility and the remote-only Copilot tools are listed too: a guard that
+    # only knows the current names passes the ones a release renames
+    github_mcp_write_tools:
+      - add_comment_to_pending_review
+      - add_issue_comment
+      - add_issue_comment_reaction
+      - add_issue_reaction
+      - add_pull_request_review_comment
+      - add_pull_request_review_comment_reaction
+      - add_reply_to_pull_request_comment
+      - add_sub_issue
+      - actions_run_trigger
+      - assign_copilot_to_issue
+      - assign_copilot_to_issue_with_intent
+      - create_branch
+      - create_gist
+      - create_issue
+      - create_or_update_file
+      - create_pull_request
+      - create_pull_request_review
+      - create_pull_request_with_copilot
+      - create_repository
+      - create_repository_ruleset
+      - custom_properties_write
+      - delete_file
+      - delete_pending_pull_request_review
+      - delete_repository
+      - discussion_comment_write
+      - dismiss_notification
+      - fork_repository
+      - issue_artifact_write
+      - issue_dependency_write
+      - issue_write
+      - label_write
+      - manage_notification_subscription
+      - manage_repository_notification_subscription
+      - mark_all_notifications_read
+      - merge_pull_request
+      - projects_write
+      - pull_request_review_write
+      - push_files
+      - request_copilot_review
+      - star_repository
+      - sub_issue_write
+      - unstar_repository
+      - update_gist
+      - update_issue_comment
+      - update_pull_request
+      - update_pull_request_branch
+  tasks:
+    - name: Report what this play installs
+      ansible.builtin.debug:
+        msg:
+          - "{{ github_mcp_server_name }} is the server GitHub hosts at {{ github_mcp_server_url }}: this play installs nothing."
+          - "Its toolsets are {{ github_mcp_toolsets }}, and the plugin reads {{ github_mcp_token_variable }} from the environment of ECA."
+          - "That token lives in .emacs; the live check is `/github:troubleshoot`, since this play never reaches the network."
+
+    # Tagged so `--tags verify` runs these checks alone, and every one of them reads
+    # the disk: a gate shell carries no token, so nothing here needs the network.
+    - name: Read the manifest of the plugin
+      ansible.builtin.stat:
+        path: "{{ github_mcp_manifest }}"
+      register: github_mcp_verify_manifest_file
+      tags: verify
+
+    - name: Require the manifest on the disk
+      ansible.builtin.assert:
+        that:
+          - github_mcp_verify_manifest_file.stat.exists | default(false)
+        fail_msg: >-
+          {{ github_mcp_manifest }} is absent: the plugin ships no server, so ECA offers no
+          github__ tool at all.
+        quiet: true
+      tags: verify
+
+    - name: Read the server entry and the allow list of the manifest
+      when: github_mcp_verify_manifest_file.stat.exists | default(false)
+      block:
+        - name: Read the server entry and the allow list of the manifest
+          ansible.builtin.set_fact:
+            github_mcp_verify_server: >-
+              {{ (lookup('ansible.builtin.file', github_mcp_manifest) | from_json).get('mcpServers', {}).get(github_mcp_server_name, {}) }}
+            github_mcp_verify_allow: >-
+              {{ (lookup('ansible.builtin.file', github_mcp_manifest) | from_json).get('toolCall', {}).get('approval', {}).get('allow', {}) }}
+            github_mcp_verify_token_set: "{{ (lookup('env', github_mcp_token_variable) | default('', true) | length) > 0 }}"
+          tags: verify
+      rescue:
+        - name: Report the manifest that cannot be read
+          ansible.builtin.fail:
+            msg: >-
+              {{ github_mcp_manifest }} cannot be read as JSON declaring mcpServers.{{ github_mcp_server_name }}
+              and toolCall.approval.allow
+              ({{ ansible_failed_result.msg | default('see the task output') }}).
+          tags: verify
+
+    - name: Require the manifest to declare the hosted server
+      # a `command` would start a stdio server, and a header that is not the token
+      # variable of the fleet would make ECA report a 401 with no cause
+      ansible.builtin.assert:
+        that:
+          - github_mcp_verify_server | default({}) is mapping
+          - (github_mcp_verify_server | default({})).get('url', '') == github_mcp_server_url
+          - (github_mcp_verify_server | default({})).get('headers', {}) is mapping
+          - (github_mcp_verify_server | default({})).get('headers', {}).get('Authorization', '') == 'Bearer ${env:' ~ github_mcp_token_variable ~ '}'
+          - (github_mcp_verify_server | default({})).get('headers', {}).get('X-MCP-Toolsets', '') == github_mcp_toolsets
+          - (github_mcp_verify_server | default({})).get('command', '') | length == 0
+          - (github_mcp_verify_server | default({})).get('args', []) | length == 0
+        fail_msg: >-
+          {{ github_mcp_manifest }} must declare mcpServers.{{ github_mcp_server_name }} with the url
+          {{ github_mcp_server_url }}, the header Authorization carrying
+          ${env:{{ github_mcp_token_variable }}} as a Bearer, X-MCP-Toolsets: {{ github_mcp_toolsets }},
+          and no command and no args: the url selects the hosted server, the headers authenticate it
+          and pick its toolsets.
+        quiet: true
+      tags: verify
+
+    - name: Require an allow list of read tools alone
+      ansible.builtin.assert:
+        that:
+          - github_mcp_verify_allow | default({}) is mapping
+          - (github_mcp_verify_allow | default({}) | length) > 0
+          - (github_mcp_verify_allow.keys() | select('match', '^' ~ github_mcp_server_name ~ '__') | list | length) == (github_mcp_verify_allow | length)
+          - (github_mcp_verify_allow.keys() | map('regex_replace', '^.*__', '') | select('in', github_mcp_write_tools) | list | length) == 0
+        fail_msg: >-
+          {{ github_mcp_manifest }} pre-approves a tool that is not a read tool of
+          {{ github_mcp_server_name }}: the allow list holds the {{ github_mcp_server_name }}__ read
+          tools only, and every write asks the owner first.
+        quiet: true
+      tags: verify
+
+    - name: Report where the token of the plugin comes from
+      ansible.builtin.debug:
+        msg: >-
+          {{ github_mcp_token_variable }} is set in this environment: /github:troubleshoot can
+          reach {{ github_mcp_server_url }}.
+      when: github_mcp_verify_token_set | default(false) | bool
+      tags: verify
+
+    - name: Report a token this shell does not carry
+      ansible.builtin.debug:
+        msg: >-
+          {{ github_mcp_token_variable }} is not set in this environment, which this check does
+          not need: ECA reads it from the environment of its own process, where .emacs exports it.
+          Run `/github:troubleshoot` for the live check.
+      when: not (github_mcp_verify_token_set | default(false) | bool)
+      tags: verify
