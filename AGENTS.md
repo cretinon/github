@@ -27,8 +27,12 @@ Recorded so a later edit does not silently undo them.
 | The live check is `/github:troubleshoot` | It runs the same `--tags verify`, then the endpoint probe from a shell that carries the token. The install and the diagnosis cannot drift apart |
 | The play asserts the absence of `command` and of `args` | A leftover stdio entry under the same key starts a second server with the same name, and ECA silently loses the hosted one |
 | The play asserts the write tools are absent from the allow list | A rule would have to match a file, and no file of the fleet is in scope of this plugin. The play already runs in the gate, so the invariant costs no new file |
-| No `code/`, no BATS suite, no `my_warp` wrapper | `ideas.md` classifies `github` as a thin service: one playbook, prompts and JSON have nothing to cover, and the ansible plus JSON gates are the gate |
-| No dashboard and no telemetry playbook | GitHub exposes no series to this fleet. A token poller would be a project of its own, and it would hold a second credential to maintain |
+| `github` is a code service: `code/lib_github.sh`, `code/bats/tests.bats` and the `my_warp.sh --lib github` gate | The per-project status is logic of our own: four cells, a bounded fetch, a page-bounded issue count and a SKIP row. It replaced the `commit_status` tool of `mcp`, so it needs the tests that tool had. `ideas.md` now classifies `github` as a code service |
+| No timer: the status runs by hand | The projects change when the owner commits, not on a clock. A timer would fetch sixteen remotes and spend a call per repository for nothing, and the record of a run nobody asked for reads like noise in the dashboard |
+| The record goes through the collector, packed | `_send_otel_notification` posts OTLP to the receiver of the fleet, which re-exports to VictoriaLogs: the record is stored like every other one. It carries a title and a body only, so the four cells travel in the body, joined by a vertical bar, and the dashboard splits them |
+| The dashboard shapes the frame itself, in four transforms | The logs frame carries the status inside its `labels` object, so the panel runs `extractFields` (source `labels`, format `json`) to get the four cells as columns, `sortBy` on `last_run` descending, `groupBy` on `notification.title` with the `first` calculation of every cell to keep one row per project, then `organize` to rename the `… (first)` columns. The LogsQL `extract` pipe is what turns the packed body into those four fields in the first place |
+| `organize` carries `renameByName` and nothing else | Its `indexByName` empties the whole frame on Grafana 13: the panel then reads `No data`, with no error anywhere. Column order is the query order, so it needs no index, and the colors come from the field overrides keyed on the pre-rename names (`commit (first)`) |
+| The project list stays in `mcp/conf/mcp.conf` | The `mcp` tools and this library cover the same projects, and two lists would drift. `MCP_COMMIT_FETCH_TIMEOUT` stays there for the same reason |
 | `rules/` stays empty, with its `.gitkeep` | A plugin rule applies once loaded and is scoped by its own `paths`. No file of the fleet belongs to this service, and a pattern matching nothing loads a rule for no reader |
 | Skill names equal their directory: `query`, `triage`, `review`, `troubleshoot` | The loader namespaces a skill by its directory, as `skillspector` does. The skills are reached as `/github:<name>` |
 | `troubleshoot` answers "no series" for the third step | The scheme makes the three steps mandatory. A service with no series says so instead of dropping the step |
@@ -46,8 +50,10 @@ Recorded so a later edit does not silently undo them.
 
 - **Valid JSON everywhere**: `jq empty` passes on every `.json` of the repository. A broken manifest resolves the whole plugin source to nothing.
 - **The playbook lint passes**: `ansible-lint .` exits `0` under the `safety` profile of `.ansible-lint`, and `yamllint -c .yamllint .` prints nothing. Both skip `.skillspector-baseline.yaml`, which no ansible tool wrote.
-- **`--syntax-check` passes**: `ansible-playbook --syntax-check install/github_mcp.yaml` before every run.
+- **`--syntax-check` passes**: `ansible-playbook --syntax-check install/github_mcp.yaml` and `--syntax-check install/github_dashboards.yaml` before every run.
 - **`--tags verify` passes and changes nothing**: every task of that block reads, and no task of the play writes.
+- **The library gate passes**: `/root/git/shell/my_warp.sh --lib github -s` prints nothing, and its suite runs through `-b '<filter>'`, never a raw binary.
+- **The dashboard stays valid**: `jq empty install/dashboards/github.json` passes, every panel id is non-zero and unique, and no panel overlaps another on the 24-column grid.
 - **The manifest declares the hosted server alone**: `mcpServers.github` carries the url, the two headers and no `command` and no `args`.
 - **The allow list holds read tools only**: every name is prefixed `github__`, and none of the published mutation tools appears. A new read tool is added by name once it answers.
 - **The token variable has one spelling**: `GITHUB_PERSONAL_ACCESS_TOKEN`, read as `${env:GITHUB_PERSONAL_ACCESS_TOKEN}` in `eca.json` and named by `github_mcp_token_variable` in the play, which asserts the header of the manifest.
@@ -76,10 +82,13 @@ See README.md
 | the `github` MCP server | `api.githubcopilot.com` | HTTPS, with the token of `GITHUB_PERSONAL_ACCESS_TOKEN` as a bearer |
 | the hosted server | `api.github.com`, on the owner's behalf | the token the bearer carries |
 | `install/github_mcp.yaml` | nothing | no network: the verify block reads the disk |
+| `install/github_dashboards.yaml` | the `grafana_server` guest | SSH, `ansible.builtin.copy` |
+| `code/lib_github.sh` | the remote of each managed project, `api.github.com`, the OTLP receiver of the fleet | `git fetch` with `AI_GITHUB_TOKEN`, `_curl`, `_send_otel_notification` |
 | `github__get_job_logs` | the logs of a workflow job, which is the largest body this plugin downloads | the hosted server, with `tail_lines` to bound it |
 
 - The plugin itself reaches no endpoint: only the server dials GitHub.
 - A read sends the token and the query. A write sends the content the owner approved.
+- The status command reads the projects and sends one record per project: it stages, commits and pushes nothing.
 
 ## Documentation
 

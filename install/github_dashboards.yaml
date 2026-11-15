@@ -1,0 +1,83 @@
+---
+- name: Install the Commit status dashboard of the github service
+  hosts: grafana_server
+  become: true
+  gather_facts: false
+  vars:
+    github_dashboards_dir: /var/lib/grafana/dashboards
+    github_dashboard_folder: Services
+    github_dashboard_file: github.json
+    github_dashboard_uid: commit-status
+    github_dashboard_title: Commit status
+    github_dashboard_source: "{{ playbook_dir }}/dashboards/{{ github_dashboard_file }}"
+    github_dashboard_target: "{{ github_dashboards_dir }}/{{ github_dashboard_folder }}/{{ github_dashboard_file }}"
+  tasks:
+    - name: Report what this play installs
+      ansible.builtin.debug:
+        msg:
+          - "The dashboard {{ github_dashboard_title }} (uid {{ github_dashboard_uid }}) is copied to {{ github_dashboard_target }}."
+          - "Grafana reads that directory through the file provider of `/root/git/grafana/install/grafana.yaml`, so run that play first and expect the dashboard within a minute."
+          - "The table is filled by `my_warp.sh --lib github commit_status`, run by hand on the machine that holds the projects."
+
+    - name: Ensure the folder of the dashboard exists
+      ansible.builtin.file:
+        path: "{{ github_dashboards_dir }}/{{ github_dashboard_folder }}"
+        state: directory
+        owner: root
+        group: grafana
+        mode: "0755"
+
+    - name: Install the dashboard
+      ansible.builtin.copy:
+        src: "{{ github_dashboard_source }}"
+        dest: "{{ github_dashboard_target }}"
+        owner: root
+        group: grafana
+        mode: "0644"
+      register: github_dashboard_copy
+
+    - name: Report where the dashboard is served
+      ansible.builtin.debug:
+        msg:
+          - "{{ github_dashboard_title }} is served at http://{{ ansible_host | default('grafana') }}:3000/d/{{ github_dashboard_uid }}"
+          - "The file changed on this run: {{ github_dashboard_copy.changed }}"
+
+    - name: Read the installed dashboard
+      ansible.builtin.stat:
+        path: "{{ github_dashboard_target }}"
+      register: github_dashboard_stat
+      tags: verify
+
+    - name: Require the dashboard on the disk
+      ansible.builtin.assert:
+        that:
+          - github_dashboard_stat.stat.exists | default(false)
+          - github_dashboard_stat.stat.mode == '0644'
+          - github_dashboard_stat.stat.pw_name == 'root'
+        fail_msg: >-
+          {{ github_dashboard_target }} is absent or not readable by Grafana: the provider of the
+          guest reads that directory, so no dashboard named {{ github_dashboard_title }} is served.
+        quiet: true
+      tags: verify
+
+    - name: Read the dashboard of the service
+      ansible.builtin.slurp:
+        src: "{{ github_dashboard_target }}"
+      register: github_dashboard_slurp
+      tags: verify
+
+    - name: Require a parseable dashboard of the expected uid
+      ansible.builtin.assert:
+        that:
+          - (github_dashboard_slurp.content | b64decode | from_json).uid == github_dashboard_uid
+          - (github_dashboard_slurp.content | b64decode | from_json).title == github_dashboard_title
+          - (github_dashboard_slurp.content | b64decode | from_json).panels | length > 0
+          - (github_dashboard_slurp.content | b64decode | from_json).panels | selectattr('id', 'equalto', 0) | list | length == 0
+          - (github_dashboard_slurp.content | b64decode | from_json).panels | map(attribute='datasource.uid') | select('equalto', 'victorialogs') | list | length == ((github_dashboard_slurp.content | b64decode | from_json).panels | length)
+        fail_msg: >-
+          {{ github_dashboard_target }} must parse as JSON, carry the uid {{ github_dashboard_uid }},
+          the title {{ github_dashboard_title }}, at least one panel, no panel id 0, and read the
+          datasource victorialogs: the table of the dashboard comes from the records the collector
+          sends to VictoriaLogs.
+        quiet: true
+      tags: verify
