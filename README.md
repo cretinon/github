@@ -88,7 +88,7 @@ The `commit_status` command prints one row per managed project and sends one rec
 The dashboard is called `Commit status`, lives in the `Services` folder, and reads the newest record of each project inside its own time range, one hour back by default.
 
 ```shell
-ansible-playbook -i /root/git/ansible/inventory/tofu/ansible_hosts install/github_dashboards.yaml
+ansible-playbook -i /root/git/ansible_old/inventory/tofu/ansible_hosts install/github_dashboards.yaml
 ```
 
 - Run `/root/git/grafana/install/grafana.yaml` first: it creates the directory and the provider the dashboard is read from.
