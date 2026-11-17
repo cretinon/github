@@ -3,6 +3,10 @@ name: triage
 description: "Read, list and act on GitHub issues through the github tools. Use when asked what an issue says, which issues are open on a repository, whether a report duplicates an existing one, or to comment on or close an issue."
 ---
 
+## MANDATORY
+
+If any tool, CLI, command line or anything fails while loading or running this skill: stop immediately and report the failure to the user.
+
 # Triage an issue
 
 ## Read one issue

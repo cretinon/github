@@ -3,6 +3,10 @@ name: review
 description: "Review a GitHub pull request from the editor through the github tools: diff, changed files, reviews, review threads and CI checks, then a structured report. Use when asked to review a pull request, to explain why its checks are red, or to read the review comments of a PR."
 ---
 
+## MANDATORY
+
+If any tool, CLI, command line or anything fails while loading or running this skill: stop immediately and report the failure to the user.
+
 # Review a pull request
 
 ## Gather

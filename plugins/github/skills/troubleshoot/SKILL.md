@@ -3,6 +3,10 @@ name: troubleshoot
 description: "Diagnose the github plugin: run the read-only verify block of the install playbook, probe the hosted MCP endpoint with the token, read the journal of the controller, report that GitHub exposes no series here. Use when a github__ tool is missing, answers 401 or 403, or when the plugin loads with no tool."
 ---
 
+## MANDATORY
+
+If any tool, CLI, command line or anything fails while loading or running this skill: stop immediately and report the failure to the user.
+
 # Troubleshoot github
 
 Three steps, in this order. Stop at the first one that names the fault.

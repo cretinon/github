@@ -3,6 +3,10 @@ name: query
 description: "Search and read GitHub from the editor through the github tools: repositories, code, commits, files, releases, orgs and users. Use when asked to find code, read a file of a remote repository, list the commits or branches of a repo, or show a release."
 ---
 
+## MANDATORY
+
+If any tool, CLI, command line or anything fails while loading or running this skill: stop immediately and report the failure to the user.
+
 # Query GitHub
 
 Every tool of this skill is read-only and pre-approved: no call asks. The tool names carry the prefix `github__`.
