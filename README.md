@@ -4,7 +4,7 @@
 
 Three goals.
 
-1. **Reach GitHub from the editor**, through the ECA plugin `github`: the hosted GitHub MCP server, its skills, its commands and its review sub-agent.
+1. **Reach GitHub from the editor**, through the ECA plugin `github`: the hosted GitHub MCP server, its skills and its review sub-agent.
 2. **Prove the plugin from outside**, through `install/github_mcp.yaml`, whose `verify` block reads the manifest the plugin starts.
 3. **Watch the local projects from one table**, through the `commit_status` command of `code/lib_github.sh`: it prints the commit, push, behind and open-issue status of every managed project, and sends one record per project to VictoriaLogs, which the `Commit status` dashboard of the fleet reads.
 
@@ -26,7 +26,6 @@ The server itself installs nothing: GitHub hosts it. The dashboard reaches Grafa
 | `plugins/github/eca.json` | change the server, its headers, or the allow list of pre-approved read tools |
 | `plugins/github/skills/<s>/SKILL.md` | change a skill |
 | `plugins/github/agents/` | change the review sub-agent |
-| `plugins/github/commands/` | change a slash command |
 | `.skillspector-baseline.yaml` | change the accepted finding, and its reason |
 | `.eca-plugin/marketplace.json` | declare a plugin of this source |
 | `~/.config/eca/config.json` | the registration that loads the plugin |
@@ -100,16 +99,16 @@ ansible-playbook -i /root/git/ansible_old/inventory/tofu/ansible_hosts install/g
 
 | Component | Name |
 |-----------|------|
-| Skills | `github:query`, `github:triage`, `github:review`, `github:troubleshoot` |
-| Commands | `github:pr`, `github:issue` |
+| Skills | `github:query`, `github:triage`, `github:issue`, `github:review`, `github:troubleshoot` |
 | Sub-agent | `github-reviewer` |
 | MCP server | `github`, tools prefixed `github__` |
 | Rules | none: this plugin scopes no file |
 
 1. Declare the source in the top-level `plugins` key of `~/.config/eca/config.json`: `"github-local": {"source": "/root/git/github"}`, and add `"github"` to its `install` list.
 2. Restart ECA.
-3. `/plugins` shows `github`, and `/github:` lists its skills and its commands.
+3. `/plugins` shows `github`, and `/github:` lists its skills.
 
+- A skill invoked with arguments expands them into its body: `/github:review owner/repo 42` and `/github:issue owner/repo 42`.
 - Read tools run without a prompt. A comment, a review, a merge, an issue write or a file push asks first.
 - Ask in plain words: "review PR 12 of cretinon/mcp", "what does issue 7 say on cretinon/shell", "which issues are open on cretinon/github".
 
@@ -122,7 +121,7 @@ ansible-playbook -i /root/git/ansible_old/inventory/tofu/ansible_hosts install/g
 | `install/github_dashboards.yaml` | `--tags verify` passes on the guest and changes nothing |
 | `code/lib_github.sh` | `/root/git/shell/my_warp.sh --lib github -s`, then `-b '<filter>'` |
 | every `.json` | `jq empty` |
-| each skill, agent and command | its frontmatter keys are present |
+| each skill and agent | its frontmatter keys are present |
 | the plugin content | `skillspector scan . --no-llm --baseline .skillspector-baseline.yaml` reports no issue, and a file scanned alone stays inside the `SAFE` band |
 
 - The `verify` blocks of the two playbooks are the only place the installation checks live.

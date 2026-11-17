@@ -9,9 +9,18 @@ If any tool, CLI, command line or anything fails while loading or running this s
 
 # Review a pull request
 
+## Inputs
+
+- `{{repo}}` (required): the repository in `owner/name` form.
+- `{{number}}` (required): the number of the pull request.
+
+## Intake
+
+Split `{{repo}}` into `owner` and `repo`, and pass them with `pullNumber: {{number}}` on every call below. Change no file and no pull request.
+
 ## Gather
 
-Every call takes `owner`, `repo` and `pullNumber`. `github__pull_request_read` also takes the `method`, one call per view.
+`github__pull_request_read` takes `owner`, `repo`, `pullNumber` and the `method`, one call per view.
 
 1. `method: get` returns the title, the state, the base, the head, the mergeable state and the draft flag.
 2. `method: get_diff` returns the patch. This is what a review reads.
@@ -28,7 +37,7 @@ For a red check, name the run, then read the failing job.
 
 ## Report
 
-One section per severity, one line per finding: file, line, what is wrong, what to do. Quote the rule or the convention each finding breaks. Open with the state of the CI and the number of changed files.
+One section per severity, one line per finding: file, line, what is wrong, what to do. Quote the rule or the convention each finding breaks. Open with the state of the CI, the number of changed files and the verdicts already given.
 
 ## Act on the review
 

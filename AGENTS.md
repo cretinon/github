@@ -115,5 +115,5 @@ See README.md
 1. First run after the registration: `/doctor` reports an `mcpServers` key ECA does not read, and `github__get_me` proves the start, the header and the endpoint at once. Add `"type": "http"` to `eca.json` only if `/doctor` asks for it — nothing in this repository proves that ECA accepts a `url` entry without it.
 2. Re-check the tool names after a server release: the hosted endpoint is upgraded by GitHub, and a renamed tool leaves its old name in the allow list as an alias for a while. `github__get_me` plus a `tools/list` from `/github:troubleshoot` settles it.
 2. Add a read tool to the allow list only once it answers, and never add a write tool to it: a pre-approved merge is one prompt away from an accident.
-3. Check the global ECA config before renaming the plugin or the server: the server name prefixes every tool name quoted by a skill, a command and the sub-agent.
+3. Check the global ECA config before renaming the plugin or the server: the server name prefixes every tool name quoted by a skill and the sub-agent.
 4. Keep the token a classic PAT: a fine-grained one hides nothing, so a missing permission turns into a failure in the middle of a task instead of a tool that is not there.
