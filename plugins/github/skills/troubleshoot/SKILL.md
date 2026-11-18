@@ -1,6 +1,6 @@
 ---
 name: troubleshoot
-description: "Diagnose the github plugin: run the read-only verify block of the install playbook, probe the hosted MCP endpoint with the token, read the journal of the controller, report that GitHub exposes no series here. Use when a github__ tool is missing, answers 401 or 403, or when the plugin loads with no tool."
+description: "Diagnose the github plugin: run the read-only verify block of the install playbook, probe the hosted MCP endpoint with the token, read the journal of the controller, read the commit-status dashboard over the last 90 days. Use when a github__ tool is missing, answers 401 or 403, or when the plugin loads with no tool."
 ---
 
 ## MANDATORY
@@ -52,8 +52,18 @@ Reading:
 
 ## 3. metrics
 
-No series. GitHub exposes no metric to this fleet, and the project ships no dashboard by decision.
+No Prometheus series of its own: GitHub exposes no metric to this fleet. The signal of this service is the `commit-status` dashboard, a table over the log store, and its data is what this step proves.
 
-- Answer "no series" for github itself. Do not read it as a scrape that is down.
-- The only signal left is the host: `grafana-plugin__query_prometheus` on the datasource uid `victoriametrics`, with `max_over_time(…)` over `{system.memory.utilization, host.name="<the controller>"}`.
-- A slow `github__search_code` across a large organisation is the one call that moves that line. A wrong answer from a healthy endpoint is not worth that check.
+Read the store behind the dashboard, through the `grafana` plugin, on the datasource uid `victorialogs`, over the last 90 days:
+
+```shell
+# grafana-plugin__query_loki_logs, datasourceUid victorialogs, start now-90d, end now, limit 5
+service.name:"commit-status"
+```
+
+- A row is data: `notification.title` names the managed project, and the line holds the four cells of the run joined by ` | `. The dashboard has something to draw.
+- No row over 90 days is a feed that never ran, not a healthy dashboard: only `my_warp.sh --lib github commit_status` writes that stream, one record per project.
+- The newest timestamp of the answer is the last run of that command.
+- `fetch failed (token)` or `failed (token)` in the cells is `AI_GITHUB_TOKEN` missing, or without `Contents: Read-only`: the token of this diagnosis, not the endpoint.
+- Read with that plain selector. The panel's own `| stats by (…) max(_time)` form answers nothing to this tool, so an empty answer from it does not mean an empty dashboard.
+- The only Prometheus signal left is the host: `grafana-plugin__query_prometheus` on the datasource uid `victoriametrics`, with `max_over_time(…)` over `{system.memory.utilization, host.name="<the controller>"}`.

@@ -35,7 +35,7 @@ Recorded so a later edit does not silently undo them.
 | The project list stays in `mcp/conf/mcp.conf` | The `mcp` tools and this library cover the same projects, and two lists would drift. `MCP_COMMIT_FETCH_TIMEOUT` stays there for the same reason |
 | `rules/` stays empty, with its `.gitkeep` | A plugin rule applies once loaded and is scoped by its own `paths`. No file of the fleet belongs to this service, and a pattern matching nothing loads a rule for no reader |
 | Skill names equal their directory: `query`, `triage`, `review`, `troubleshoot` | The loader namespaces a skill by its directory, as `skillspector` does. The skills are reached as `/github:<name>` |
-| `troubleshoot` answers "no series" for the third step | The scheme makes the three steps mandatory. A service with no series says so instead of dropping the step |
+| `troubleshoot` reads the `commit-status` dashboard for its third step, and answers "no Prometheus series" | The scheme makes the three steps mandatory. The service has a dashboard over the log store, and no Prometheus series of its own, so the step proves the data instead of dropping it |
 | `github-reviewer` is read-only, through `disabledTools` | A review reports; the owner writes. Disabling the mutating tools makes the sub-agent read-only by construction, not by instruction |
 | The global config disables the `github` server for every other sub-agent | The owner's decision: `github-reviewer` stays the only GitHub reader among the sub-agents |
 | The plugin is the only GitHub path for an agent | The owner's decision: the `mcp-bash` issue tools are temporary. `mcp` is out of scope, so nothing here edits them, and nothing here names them as the way to work |

@@ -11,7 +11,7 @@ Personal ECA plugin for GitHub: the hosted GitHub MCP server, five skills and a 
 | `skills/triage/` | read, list and act on issues |
 | `skills/issue/` | read one issue, its comments, its labels and its hierarchy |
 | `skills/review/` | review a pull request, its reviews, its threads and its checks |
-| `skills/troubleshoot/` | diagnose the plugin: the verify block, the endpoint probe, the journal, no series |
+| `skills/troubleshoot/` | diagnose the plugin: the verify block, the endpoint probe, the journal, the `commit-status` dashboard over 90 days |
 | `agents/github-reviewer.md` | read-only pull request and issue reviewer |
 | `rules/` | empty on purpose: this plugin scopes no file of another service |
 | `hooks/hooks.json` | empty on purpose: no hook |
