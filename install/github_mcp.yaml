@@ -16,6 +16,7 @@
     # compatibility and the remote-only Copilot tools are listed too: a guard that
     # only knows the current names passes the ones a release renames
     github_mcp_write_tools:
+      - add_automation_to_group
       - add_comment_to_pending_review
       - add_issue_comment
       - add_issue_comment_reaction
@@ -27,6 +28,8 @@
       - actions_run_trigger
       - assign_copilot_to_issue
       - assign_copilot_to_issue_with_intent
+      - create_automation
+      - create_automation_group
       - create_branch
       - create_gist
       - create_issue
@@ -37,6 +40,7 @@
       - create_repository
       - create_repository_ruleset
       - custom_properties_write
+      - delete_automation
       - delete_file
       - delete_pending_pull_request_review
       - delete_repository
@@ -54,14 +58,102 @@
       - projects_write
       - pull_request_review_write
       - push_files
+      - remove_automation_from_group
       - request_copilot_review
+      - run_automation
       - star_repository
       - sub_issue_write
       - unstar_repository
+      - update_automation
       - update_gist
       - update_issue_comment
       - update_pull_request
       - update_pull_request_branch
+    # the read tools the manifest pre-approves, by name and once each. The live
+    # `tools/list` of the hosted server is what fills this list, so it is the one place a
+    # rename shows: a name left here that no longer answers proves nothing, and a read
+    # tool the server adds stays un-pre-approved until it is named here. Snapshot: the
+    # `tools/list` of 18 November 2026, 113 tools
+    github_mcp_read_tools:
+      - actions_get
+      - actions_list
+      - check_dependency_vulnerabilities
+      - custom_properties_read
+      - get_code_quality_finding
+      - get_code_scanning_alert
+      - get_commit
+      - get_dependabot_alert
+      - get_discussion
+      - get_discussion_comments
+      - get_file_contents
+      - get_gist
+      - get_global_security_advisory
+      - get_job_logs
+      - get_label
+      - get_latest_release
+      - get_me
+      - get_notification_details
+      - get_release_by_tag
+      - get_repository_tree
+      - get_secret_scanning_alert
+      - get_tag
+      - get_team_members
+      - get_teams
+      - github_support_docs_search
+      - issue_read
+      - list_branches
+      - list_code_scanning_alerts
+      - list_commits
+      - list_dependabot_alerts
+      - list_discussion_categories
+      - list_discussions
+      - list_gists
+      - list_global_security_advisories
+      - list_issue_fields
+      - list_issue_types
+      - list_issues
+      - list_label
+      - list_notifications
+      - list_org_repository_security_advisories
+      - list_pull_requests
+      - list_releases
+      - list_repository_collaborators
+      - list_repository_security_advisories
+      - list_secret_scanning_alerts
+      - list_starred_repositories
+      - list_tags
+      - projects_get
+      - projects_list
+      - pull_request_read
+      - repository_ruleset_read
+      - run_secret_scanning
+      - search_code
+      - search_commits
+      - search_orgs
+      - search_pull_requests
+      - search_repositories
+      - search_users
+      - ui_get
+    # the reads the server answers through a model of GitHub: the Copilot spaces, the
+    # Copilot tasks, the automations they run and the semantic search. Pre-approving one
+    # of them would send the question out with no human decision, so each is listed in
+    # `ask` and named here
+    github_mcp_third_party_read_tools:
+      - get_automation
+      - get_automation_group
+      - get_automation_revision
+      - get_automations_configuration_for_repository
+      - get_copilot_session_events
+      - get_copilot_space
+      - get_copilot_task_status
+      - list_automation_groups
+      - list_automation_revisions
+      - list_automations
+      - list_available_automation_tools
+      - list_available_automation_triggers
+      - list_copilot_spaces
+      - search_issues
+      - semantic_issue_similarity_search
   tasks:
     - name: Report what this play installs
       ansible.builtin.debug:
@@ -88,15 +180,17 @@
         quiet: true
       tags: verify
 
-    - name: Read the server entry and the allow list of the manifest
+    - name: Read the server entry and the approval rules of the manifest
       when: github_mcp_verify_manifest_file.stat.exists | default(false)
       block:
-        - name: Read the server entry and the allow list of the manifest
+        - name: Read the server entry and the approval rules of the manifest
           ansible.builtin.set_fact:
             github_mcp_verify_server: >-
               {{ (lookup('ansible.builtin.file', github_mcp_manifest) | from_json).get('mcpServers', {}).get(github_mcp_server_name, {}) }}
             github_mcp_verify_allow: >-
               {{ (lookup('ansible.builtin.file', github_mcp_manifest) | from_json).get('toolCall', {}).get('approval', {}).get('allow', {}) }}
+            github_mcp_verify_ask: >-
+              {{ (lookup('ansible.builtin.file', github_mcp_manifest) | from_json).get('toolCall', {}).get('approval', {}).get('ask', {}) }}
             github_mcp_verify_token_set: "{{ (lookup('env', github_mcp_token_variable) | default('', true) | length) > 0 }}"
           tags: verify
       rescue:
@@ -140,6 +234,33 @@
           {{ github_mcp_manifest }} pre-approves a tool that is not a read tool of
           {{ github_mcp_server_name }}: the allow list holds the {{ github_mcp_server_name }}__ read
           tools only, and every write asks the owner first.
+        quiet: true
+      tags: verify
+
+    - name: Require the allow list to hold exactly the read tools this play names
+      # the manifest and the play carry the same names: a server release renames a tool and
+      # one of the two keeps the old spelling. This is the check that names the drift
+      ansible.builtin.assert:
+        that:
+          - (github_mcp_verify_allow.keys() | map('regex_replace', '^.*__', '') | sort) == (github_mcp_read_tools | sort)
+        fail_msg: >-
+          {{ github_mcp_manifest }} and github_mcp_read_tools disagree: the allow list holds a
+          name this play does not declare, or a name of this play is absent from the allow
+          list. Read the live `tools/list` of {{ github_mcp_server_url }}, align the two sides,
+          then run this play again.
+        quiet: true
+      tags: verify
+
+    - name: Require the reads GitHub answers with a model to ask the owner
+      ansible.builtin.assert:
+        that:
+          - (github_mcp_verify_ask.keys() | map('regex_replace', '^.*__', '') | select('in', github_mcp_third_party_read_tools) | list | length) == (github_mcp_third_party_read_tools | length)
+          - (github_mcp_verify_ask | length) == (github_mcp_third_party_read_tools | length)
+          - (github_mcp_verify_allow.keys() | map('regex_replace', '^.*__', '') | select('in', github_mcp_third_party_read_tools) | list | length) == 0
+        fail_msg: >-
+          {{ github_mcp_manifest }} pre-approves a read that GitHub answers with a model, or
+          leaves one out of `ask`: the Copilot tools, the automations they run and the semantic
+          search ask the owner first, whatever their read-only shape.
         quiet: true
       tags: verify
 

@@ -45,6 +45,8 @@ Recorded so a later edit does not silently undo them.
 | The linters exclude the baseline file | SkillSpector writes `.skillspector-baseline.yaml` with its sequence at column 0 and rewrites it that way on every run, so an edit by hand is lost. `.ansible-lint` excludes it and `.yamllint` ignores it, so the gate lints the YAML we write and not the file a tool owns |
 | The write guard of the play is a deny list | The read tools stay declared in one place, the manifest. The play only refuses a name it knows to mutate, and that list carries the backward-compatible aliases upstream keeps (`create_issue`, `add_sub_issue`, `create_pull_request_review`, the reaction tools) and the remote-only `create_pull_request_with_copilot`, since a guard that knows the current names alone passes the ones a release renames |
 | Three read tools stay out of the allow list | `find_duplicate` ships behind the `duplicate_detection` feature flag, and `issue_artifact_read` and `issue_dependency_read` have no snapshot upstream, so none of them registers with `X-MCP-Toolsets: all`. A pre-approval of a name that never appears proves nothing; add one once a live `tools/list` shows it |
+| The allow list is compared with a list of names in the play | A rename upstream leaves a name in the allow list that no tool answers, and a read tool the server adds stays un-pre-approved. Neither shows until a human diffs the live `tools/list`. The play declares every read name once, in `github_mcp_read_tools`, and `--tags verify` fails when the two sides differ |
+| The reads GitHub answers with a model ask | `/root/git/agents/readfirst/archi.md` fixes the rule for every plugin: a read that transmits its input to a third-party model asks. The Copilot spaces, the Copilot tasks, the automations they run, `search_issues` and `semantic_issue_similarity_search` sit in `ask`, and the play asserts that `ask` holds those names alone and that none of them entered `allow` |
 
 ## Invariants
 
@@ -55,7 +57,7 @@ Recorded so a later edit does not silently undo them.
 - **The library gate passes**: `/root/git/shell/my_warp.sh --lib github -s` prints nothing, and its suite runs through `-b '<filter>'`, never a raw binary.
 - **The dashboard stays valid**: `jq empty install/dashboards/github.json` passes, every panel id is non-zero and unique, and no panel overlaps another on the 24-column grid.
 - **The manifest declares the hosted server alone**: `mcpServers.github` carries the url, the two headers and no `command` and no `args`.
-- **The allow list holds read tools only**: every name is prefixed `github__`, and none of the published mutation tools appears. A new read tool is added by name once it answers.
+- **The allow list holds exactly the read tools the play declares**: `github_mcp_read_tools` in `install/github_mcp.yaml` and the allow list carry the same names, every name is prefixed `github__`, none of the published mutation tools appears, and no read a model answers is in it.
 - **The token variable has one spelling**: `GITHUB_PERSONAL_ACCESS_TOKEN`, read as `${env:GITHUB_PERSONAL_ACCESS_TOKEN}` in `eca.json` and named by `github_mcp_token_variable` in the play, which asserts the header of the manifest.
 - **No secret in a tracked file**: `.gitignore` ignores every `.env*` file, and a token found in a tracked file is a defect, not a convenience.
 - **The agent content scans `SAFE`**: no file of the repository scores above the `SAFE` band, and the only finding left is the E1 of the declared endpoint, recorded in the baseline with its reason. `skillspector scan . --no-llm --baseline .skillspector-baseline.yaml` reports no issue at all.
@@ -114,6 +116,6 @@ See README.md
 
 1. First run after the registration: `/doctor` reports an `mcpServers` key ECA does not read, and `github__get_me` proves the start, the header and the endpoint at once. Add `"type": "http"` to `eca.json` only if `/doctor` asks for it — nothing in this repository proves that ECA accepts a `url` entry without it.
 2. Re-check the tool names after a server release: the hosted endpoint is upgraded by GitHub, and a renamed tool leaves its old name in the allow list as an alias for a while. `github__get_me` plus a `tools/list` from `/github:troubleshoot` settles it.
-2. Add a read tool to the allow list only once it answers, and never add a write tool to it: a pre-approved merge is one prompt away from an accident.
+2. Add a read tool to the allow list only once it answers, and add its name to `github_mcp_read_tools` in the same edit: the play refuses the two lists apart. Never add a write tool to it: a pre-approved merge is one prompt away from an accident.
 3. Check the global ECA config before renaming the plugin or the server: the server name prefixes every tool name quoted by a skill and the sub-agent.
 4. Keep the token a classic PAT: a fine-grained one hides nothing, so a missing permission turns into a failure in the middle of a task instead of a tool that is not there.

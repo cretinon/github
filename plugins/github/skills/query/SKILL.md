@@ -21,7 +21,7 @@ Every tool of this skill is read-only and pre-approved: no call asks. The tool n
 
 - `github__list_branches`, `github__list_tags`, `github__get_tag`, `github__list_releases`, `github__get_latest_release` and `github__get_release_by_tag` cover the refs and the releases.
 - `github__list_commits` takes a branch or a path, `github__get_commit` takes one `sha`.
-- `github__get_repository_tree` takes a `sha` and returns the whole shape of a repository, `github__get_file_blame` names the author of a line range.
+- `github__get_repository_tree` takes a `sha` and returns the whole shape of a repository.
 - `github__search_commits` takes the same qualified query as the code search.
 
 ## Answer
