@@ -3,11 +3,6 @@
 # `yaml` rule, so the five settings it requires are set exactly as it asks for them.
 extends: default
 
-# the baseline SkillSpector generates starts its sequence at column 0 and is rewritten
-# that way on every run: the gate lints the YAML we write, not the file a tool owns
-ignore: |
-  .skillspector-baseline.yaml
-
 rules:
   # the git URL of the scanner and an unpacked tool spec are one long token: a width
   # wide enough for them keeps the file readable instead of breaking a URL in two

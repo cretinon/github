@@ -26,11 +26,10 @@ The server itself installs nothing: GitHub hosts it. The dashboard reaches Grafa
 | `plugins/github/eca.json` | change the server, its headers, or the allow list of pre-approved read tools |
 | `plugins/github/skills/<s>/SKILL.md` | change a skill |
 | `plugins/github/agents/` | change the review sub-agent |
-| `.skillspector-baseline.yaml` | change the accepted finding, and its reason |
 | `.eca-plugin/marketplace.json` | declare a plugin of this source |
 | `~/.config/eca/config.json` | the registration that loads the plugin |
 
-Two playbooks: `install/github_mcp.yaml` verifies the plugin manifest, `install/github_dashboards.yaml` installs the dashboard. The service is a remote endpoint, so the first one has no package, no binary and no version to pin. `ideas.md` classifies this project as a code service: `code/` carries the library and its suite, and the gate is `my_warp.sh --lib github`.
+Two playbooks: `install/github_mcp.yaml` verifies the plugin manifest, `install/github_dashboards.yaml` installs the dashboard. The service is a remote endpoint, so the first one has no package, no binary and no version to pin. `archi.md` classifies this project as a code service: `code/` carries the library and its suite, and the gate is `my_warp.sh --lib github`.
 
 ## Prerequisites
 
@@ -122,10 +121,9 @@ ansible-playbook -i /root/git/ansible_old/inventory/tofu/ansible_hosts install/g
 | `code/lib_github.sh` | `/root/git/shell/my_warp.sh --lib github -s`, then `-b '<filter>'` |
 | every `.json` | `jq empty` |
 | each skill and agent | its frontmatter keys are present |
-| the plugin content | `skillspector scan . --no-llm --baseline .skillspector-baseline.yaml` reports no issue, and a file scanned alone stays inside the `SAFE` band |
+| the plugin content | `skillspector scan . --no-llm` reports no issue, and a file scanned alone stays inside the `SAFE` band |
 
 - The `verify` blocks of the two playbooks are the only place the installation checks live.
-- `.skillspector-baseline.yaml` records the one accepted finding: the declared endpoint, an E1 "external transmission" on every file that names it. Scan a single file with its own path and that finding reappears, since a fingerprint carries the path of the scan. Add a new finding to the baseline only with its reason.
 - The library gate is the wrapper of the `shell` project, never the raw `bats`, `shellcheck` or `kcov` binary. The full suite and the coverage belong to the review.
 - Run the command by hand once after a change: it is the only end-to-end proof that the table and the records agree.
 
