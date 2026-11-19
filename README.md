@@ -29,7 +29,7 @@ The server itself installs nothing: GitHub hosts it. The dashboard reaches Grafa
 | `.eca-plugin/marketplace.json` | declare a plugin of this source |
 | `~/.config/eca/config.json` | the registration that loads the plugin |
 
-Two playbooks: `install/github_mcp.yaml` verifies the plugin manifest, `install/github_dashboards.yaml` installs the dashboard. The service is a remote endpoint, so the first one has no package, no binary and no version to pin. `archi.md` classifies this project as a code service: `code/` carries the library and its suite, and the gate is `my_warp.sh --lib github`.
+Two playbooks: `install/github_mcp.yaml` verifies the plugin manifest, `install/github_dashboards.yaml` installs the dashboard. The service is a remote endpoint, so the first one has no package, no binary and no version to pin. `/root/git/agents/readfirst/archi.md` classifies this project as a code service: `code/` carries the library and its suite, and the gate is `my_warp.sh --lib github`.
 
 ## Prerequisites
 
